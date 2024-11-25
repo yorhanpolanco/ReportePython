@@ -1,0 +1,247 @@
+trigger:
+  branches:
+    include:
+      - main
+      - master
+
+pr:
+  branches:
+    include:
+      - main
+      - master
+
+parameters:
+  - name: equipo
+    displayName: 'Seleccionar Equipo'
+    type: string
+    default: ''
+    values:
+      - 'Equipo A'
+      - 'Equipo B'
+      - 'Equipo C'
+      - 'Equipo D'
+      - 'Equipo E'
+      - 'Equipo F'
+      - 'Equipo G'
+      - 'Equipo H'
+
+  - name: nombres_de_Epicas
+    displayName: 'Insertar nombre de epicas'
+    type: string
+    default: ''
+
+  - name: datos_de_Epicas
+    displayName: 'Insertar datos de Epicas'
+    type: string
+    default: ''
+
+  - name: impedimentos
+    displayName: 'Insertar impedimentos'
+    type: string
+    default: ''
+
+  - name: actividades
+    displayName: 'Insertar actividades'
+    type: string
+    default: ''
+
+  - name: acuerdos
+    displayName: 'Insertar acuerdos'
+    type: string
+    default: ''
+
+  - name: consideraciones
+    displayName: 'Insertar consideraciones'
+    type: string
+    default: ''
+
+  - name: cantidad_Historias
+    displayName: 'Insertar cantidad_Historias'
+    type: string
+    default: ''
+
+  - name: bloqueantes
+    displayName: 'Insertar bloqueantes'
+    type: string
+    default: ''
+
+  - name: criticos
+    displayName: 'Insertar criticos'
+    type: string
+    default: ''
+
+  - name: mayor
+    displayName: 'Insertar mayor'
+    type: string
+    default: ''
+
+  - name: normal
+    displayName: 'Insertar normal'
+    type: string
+    default: ''
+
+  - name: menor
+    displayName: 'Insertar menor'
+    type: string
+    default: ''
+
+  - name: sin_Clasificar
+    displayName: 'Insertar sin_Clasificar'
+    type: string
+    default: ''
+
+  - name: actividades_fuera
+    displayName: 'Insertar actividades_fuera'
+    type: string
+    default: ''
+
+  - name: nombre_remitente
+    displayName: 'Insertar nombre_remitente'
+    type: string
+    default: ''
+
+  - name: rol
+    displayName: 'Insertar rol'
+    type: string
+    default: ''
+
+stages:
+- stage: test
+  jobs:
+  - job: test
+    timeoutInMinutes: 60
+    
+    strategy:
+      matrix:
+        windows:
+          poolName: 'onpremise'
+          vmImage: 'windows-latest'  # Descomentar para agregar ejecucion en macOS
+    #    macOs:
+    #      poolName: 'onpremise'
+    #      vmImage: 'macOs-latest'
+    #  maxParallel: 2  # Descomentar para agregar ejecucion en paralelo de multiples plataformas si existen varios agentes(hosted)
+    
+    variables:
+    - group: 'ConexionBD'
+    - name: EQUIPO
+      value: ${{ parameters.equipo }}
+    - name: LISTA_EPICAS
+      value: ${{ parameters.nombres_de_Epicas }}
+    - name: DATOS_EPICAS
+      value: ${{ parameters.datos_de_Epicas }}
+    - name: IMPEDIMENTOS
+      value: ${{ parameters.impedimentos }}
+    - name: ACTIVIDADES
+      value: ${{ parameters.actividades }}
+    - name: ACUERDOS
+      value: ${{ parameters.acuerdos }}
+    - name: CONSIDERACIONES
+      value: ${{ parameters.consideraciones }}
+    - name: CANTIDAD_HISTORIAS
+      value: ${{ parameters.cantidad_historias }}
+    - name: BLOQUEANTES
+      value: ${{ parameters.bloqueantes }}
+    - name: CRITICOS
+      value: ${{ parameters.criticos }}
+    - name: MAYOR
+      value: ${{ parameters.mayor }}
+    - name: NORMAL
+      value: ${{ parameters.normal }}
+    - name: MENOR
+      value: ${{ parameters.menor }}
+    - name: SIN_CLASIFICAR
+      value: ${{ parameters.sin_clasificar }}
+    - name: ACTIVIDADES_FUERA
+      value: ${{ parameters.actividades_fuera }}
+    - name: NOMBRE_REMITENTE
+      value: ${{ parameters.nombre_remitente }}
+    - name: ROL
+      value: ${{ parameters.rol }}
+  
+    pool:
+      name: $(poolName)
+      vmImage: $(vmImage) 
+        
+    steps:
+    - checkout: self
+      displayName: 'Clonar repositorio'
+  
+    #- task: UsePythonVersion@0
+    #  inputs:
+    #    versionSpec: '3.12'
+    #  displayName: 'Configurar python'
+
+    - task: PowerShell@2
+      inputs:
+        targetType: 'inline'
+        script: |
+          # Definir la URL de descarga para Python embebido 3.12 y pip.pyz
+          $pythonUrl = "https://www.python.org/ftp/python/3.12.0/python-3.12.0-embed-amd64.zip"
+          $pipUrl = "https://bootstrap.pypa.io/pip/pip.pyz"
+          $outputPython = "$env:TEMP\python-embed.zip"
+          $outputPip = "$env:TEMP\pip.pyz"
+          $pythonExtractPath = "$env:TEMP\python-embed"
+          $destinationPipPath = "$pythonExtractPath\pip.pyz"
+
+          # Descargar el archivo embebido de Python solo si no está presente
+          if (-not (Test-Path $pythonExtractPath)) {
+              Invoke-WebRequest -Uri $pythonUrl -OutFile $outputPython
+              Expand-Archive -Path $outputPython -DestinationPath $pythonExtractPath -Force
+              Write-Host "Python embebido descargado y extraído en: $pythonExtractPath"
+          } else {
+              Write-Host "Python embebido ya está presente en $pythonExtractPath"
+          }
+
+          # Descargar y mover pip.pyz solo si no existe
+          if (!(Test-Path $destinationPipPath)) {
+              Write-Host "Descargando pip.pyz..."
+              Invoke-WebRequest -Uri $pipUrl -OutFile $outputPip
+              Move-Item -Path $outputPip -Destination $destinationPipPath
+              Write-Host "pip.pyz descargado y movido a $destinationPipPath"
+          } else {
+              Write-Host "pip.pyz ya existe en $destinationPipPath"
+          }
+
+          # Verificar la instalación de Python
+          $pythonPath = "$pythonExtractPath\python.exe"
+          if (Test-Path $pythonPath) {
+              Write-Host "Python embebido descargado y extraído correctamente."
+          } else {
+              Write-Host "Python embebido no se descargó o extrajo correctamente."
+          }
+
+          echo "##vso[task.setvariable variable=pythonPath]$pythonPath"
+          echo "##vso[task.setvariable variable=destinationPipPath]$destinationPipPath"
+
+          # Verificar la versión de Python
+          & $pythonPath --version
+
+          # Ejecutar pip.pyz para verificar la versión de pip
+          & $pythonPath "$destinationPipPath" --version
+      displayName: 'Descargar y configurar Python embebido 3.12 con pip.pyz'
+    
+    - script: |
+        $(pythonPath) --version
+        $(pythonPath) "$(destinationPipPath)" --version
+      displayName: 'Revisar versiones de Python y pip'  
+  
+    - script: |
+        $(pythonPath) "$(destinationPipPath)" install -r $(Pipeline.Workspace)/s/requirements.txt
+      displayName: 'Instalar dependencias'
+
+    - script: |
+        $(pythonPath) "$(destinationPipPath)" list
+        set "PYTHONPATH=$(pythonExtractPath)\Lib\site-packages\"
+        echo "Ejecutando main.py..."
+        $(pythonPath) "$(Pipeline.Workspace)/s/src/main.py"
+      displayName: 'Ejecutar escenarios de prueba'
+      env:
+        PYTHONPATH: '$(pythonExtractPath)\Lib\site-packages\'
+
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: |
+         $(Pipeline.Workspace)/s/reports/
+        artifactName: 'ReporteHTML-$(vmImage)'
+      condition: always()
+      displayName: 'Generar artefacto de Reporte HTML para $(vmImage)'
